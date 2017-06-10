@@ -24,24 +24,26 @@ module InfluxDB
         nsecs += d[11]
         Time.at(secs, nsecs/1000.0)
       }
-      @results = []
     end
 
     def next
-      while @results.empty?
-        return if @io.eof?
-        results = @unpacker.read
-        if err = results["error"]
-          raise ResultError.new(err)
-        end
-        @results.concat(results["results"]) if results["results"]
+      @unpacker.each do |v|
+        p v
       end
-
-      result = @results.shift
-      if err = result["error"]
-        raise ResultError.new(err)
-      end
-      ResultSet.new(result).tap {|r| @cur = r}
+#      while @results.empty?
+#        return if @io.eof?
+#        results = @unpacker.read
+#        if err = results["error"]
+#          raise ResultError.new(err)
+#        end
+#        @results.concat(results["results"]) if results["results"]
+#      end
+#
+#      result = @results.shift
+#      if err = result["error"]
+#        raise ResultError.new(err)
+#      end
+#      ResultSet.new(result).tap {|r| @cur = r}
     end
 
     def close
@@ -54,7 +56,8 @@ module InfluxDB
 
     attr_reader :messages
 
-    def initialize(result)
+    def initialize(cur, result)
+      @cur = cur
       @series = result["series"]
       if messages = result["messages"]
         @messages = messages.map {|m| Message.new(m)}
@@ -65,6 +68,7 @@ module InfluxDB
     end
 
     def next
+      return unless @cur
       while @series.empty?
         return if !@partial
         # Retrieve additional series by retrieving

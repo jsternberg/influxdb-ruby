@@ -23,6 +23,7 @@ module Excon
       end
 
       buffer = StringIO.new
+      buffer.binmode
       if length
         while length > 0
           if @bytes_left == 0
@@ -42,6 +43,7 @@ module Excon
           @bytes_left -= chunk.bytesize
           length -= chunk.bytesize
           buffer.write(chunk)
+          @socket.read(2)
         end
 
         if outbuf
@@ -55,8 +57,9 @@ module Excon
           @buffer = nil
         end
 
-        while (chunk_size = @socket.readline.chomp!.to_i(16)) > 0
+        while (chunk_size = @socket.readline.chomp!.to_i(16)) > 0 do
           buffer.write(@socket.read(chunk_size))
+          @socket.read(2)
         end
         @eof = true
       end
