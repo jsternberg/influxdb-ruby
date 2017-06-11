@@ -27,23 +27,12 @@ module InfluxDB
     end
 
     def next
-      @unpacker.each do |v|
-        p v
+      return if @io.eof?
+      result = @unpacker.read
+      if err = result["error"]
+        raise ResultError.new(err)
       end
-#      while @results.empty?
-#        return if @io.eof?
-#        results = @unpacker.read
-#        if err = results["error"]
-#          raise ResultError.new(err)
-#        end
-#        @results.concat(results["results"]) if results["results"]
-#      end
-#
-#      result = @results.shift
-#      if err = result["error"]
-#        raise ResultError.new(err)
-#      end
-#      ResultSet.new(result).tap {|r| @cur = r}
+      ResultSet.new(result, @io, @unpacker)
     end
 
     def close
@@ -54,26 +43,50 @@ module InfluxDB
   class ResultSet
     include Mixins::Enumerable
 
-    attr_reader :messages
+    attr_reader :id, :messages
 
-    def initialize(cur, result)
-      @cur = cur
-      @series = result["series"]
+    def initialize(result, io, unpacker)
+      @io = io
+      @unpacker = unpacker
+      @id = result["id"]
       if messages = result["messages"]
         @messages = messages.map {|m| Message.new(m)}
       else
         @messages = []
       end
-      @partial = result["partial"] || false
+      @remaining = unpacker.read
+      @series = nil
+      @done = false
     end
 
     def next
-      return unless @cur
-      while @series.empty?
-        return if !@partial
-        # Retrieve additional series by retrieving
+      return if done?
+      if @remaining.zero?
+        return if @io.eof?
+        @remaining = @unpacker.read
+        if @remaining.zero?
+          @done = true
+          return
+        end
       end
-      Series.new(@series.shift)
+
+      series = @unpacker.read
+      @remaining -= 1
+      if err = series["error"]
+        raise ResultError.new(err)
+      end
+      Series.new(series, @io, @unpacker).tap {|s| @series = s}
+    end
+
+    def discard
+      until done?
+        @series.discard if @series
+        self.next
+      end
+    end
+
+    def done?
+      @done
     end
   end
 
@@ -95,19 +108,45 @@ module InfluxDB
 
     attr_reader :name, :tags, :columns
 
-    def initialize(series)
+    def initialize(series, io, unpacker)
       @name = series["name"]
       @tags = series["tags"].freeze
       @columns = series["columns"].freeze
-      @values = series["values"]
-      @partial = series["partial"] || false
+      @io = io
+      @unpacker = unpacker
+      @remaining = unpacker.read
+      @done = false
     end
 
     def next
-      while @values.empty?
-        return if !@partial
+      return if done?
+      if @remaining.zero?
+        return if @io.eof?
+        @remaining = @unpacker.read
+        return if @remaining.zero?
       end
-      @values.shift
+
+      row = @unpacker.read
+      @remaining -= 1
+      if err = row["error"]
+        raise ResultError.new(err)
+      end
+      row["values"]
+    end
+
+    def discard
+      until done?
+        until @remaining.zero?
+          @unpacker.skip
+          @remaining -= 1
+        end
+        @remaining = @unpacker.read
+        @done = true if @remaining.zero?
+      end
+    end
+
+    def done?
+      @done
     end
   end
 end
