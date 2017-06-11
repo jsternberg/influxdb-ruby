@@ -12,4 +12,13 @@ module InfluxDB
       @cause = cause
     end
   end
+
+  class NoFieldsError < StandardError
+  end
+
+  class InvalidFieldType < StandardError
+    def initialize(value)
+      super("invalid field type: #{value.class}")
+    end
+  end
 end

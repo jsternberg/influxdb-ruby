@@ -36,7 +36,7 @@ module InfluxDB
     end
 
     def writer(opts={})
-      Querier.new(self, opts)
+      HTTPWriter.new(self, opts)
     end
   end
 end
