@@ -62,7 +62,10 @@ module InfluxDB
     def next
       return if done?
       if @remaining.zero?
-        return if @io.eof?
+        if @io.eof?
+          @done = true
+          return
+        end
         @remaining = @unpacker.read
         if @remaining.zero?
           @done = true

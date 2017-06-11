@@ -8,10 +8,8 @@ module InfluxDB
     end
 
     def execute(q, opts={})
-      select do |result|
-        if result.error?
-          return result.error
-        end
+      select(q) do |result|
+        result.discard
       end
     end
 
