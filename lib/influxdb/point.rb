@@ -5,7 +5,7 @@ module InfluxDB
     def initialize(name:, tags: nil, fields: nil, time: nil)
       @name = name
       @tags = tags.nil? ? {} : tags
-      @fields = fields
+      @fields = fields.nil? ? {} : fields
       @time = time
     end
 
@@ -20,6 +20,11 @@ module InfluxDB
     end
 
     def write_to(w)
+      protocol = DefaultWriteProtocol
+      if w.respond_to?(:protocol)
+        protocol = w.protocol
+      end
+      protocol.encode(w, self)
     end
   end
 end

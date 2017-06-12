@@ -1,3 +1,5 @@
+require "spec_helper"
+
 describe InfluxDB::Protocol do
   context "when using protocol v1" do
     subject(:protocol) { InfluxDB::Protocol::V1.new }
@@ -62,5 +64,9 @@ describe InfluxDB::Protocol do
     it "will have a content type" do
       expect(protocol.content_type).to eq("application/x-influxdb-line-protocol-v1")
     end
+  end
+
+  it "will use v1 for the default write protocol" do
+    expect(InfluxDB::DefaultWriteProtocol).to be_a(InfluxDB::Protocol::V1)
   end
 end

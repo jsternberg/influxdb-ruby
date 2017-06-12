@@ -29,7 +29,7 @@ module InfluxDB
             buffer.write(v.to_s)
           when Integer
             buffer.write(v.to_s + "i")
-          when String
+          when String, Symbol
             buffer.write('"' + v + '"')
           when TrueClass
             buffer.write("t")
@@ -50,4 +50,6 @@ module InfluxDB
       end
     end
   end
+
+  DefaultWriteProtocol = Protocol::V1.new
 end
